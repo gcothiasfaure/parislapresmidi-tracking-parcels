@@ -3,7 +3,7 @@ from urllib.parse import quote
 
 GOOGLE_APIS_SERVICE_ACCOUNT_INFOS = {
   "type": "service_account",
-  "project_id": os.environ("GOOGLE_APIS_SERVICE_ACCOUNT_INFOS_PROJECT_ID"),
+  "project_id": os.environ.get("GOOGLE_APIS_SERVICE_ACCOUNT_INFOS_PROJECT_ID"),
   "private_key_id": os.environ.get('GOOGLE_APIS_SERVICE_ACCOUNT_INFOS_PRIVATE_KEY_ID'),
   "private_key": os.environ.get('GOOGLE_APIS_SERVICE_ACCOUNT_INFOS_PRIVATE_KEY'),
   "client_email": os.environ.get('GOOGLE_APIS_SERVICE_ACCOUNT_INFOS_CLIENT_EMAIL'),

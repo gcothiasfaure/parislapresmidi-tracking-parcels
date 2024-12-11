@@ -1,5 +1,5 @@
 FROM python:3.12
-WORKDIR /app
 COPY source-code /app/source-code
-RUN pip install -r requirements.txt
-CMD ["python", "/app/main.py"]
+RUN mkdir /app/output
+RUN pip install -r /app/source-code/requirements.txt
+CMD ["python", "/app/source-code/main.py"]

@@ -1,4 +1,4 @@
-name: build and publish to Docker Hub on push to main
+name: build and publish to Docker Hub, run on VPS on push to main
 
 on:
   push:
@@ -25,7 +25,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           push: true
-          tags: gaspardcothiasfaure/anniv.lgna.fr:0.2
+          tags: gaspardcothiasfaure/parislapresmidi-tracking-parcels:0.1
 
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -38,7 +38,7 @@ jobs:
           password: ${{ secrets.VPS_PASSWORD }}
           source: "docker-compose.yml"
           overwrite: true
-          target: "/home/debian/lgna-sandbox/anniv.lgna.fr"
+          target: "/home/debian/parislapresmidi-tracking-parcels"
 
       - name: Pull latest Docker image and launch docker-compose.yml
         uses: appleboy/ssh-action@master
@@ -47,5 +47,6 @@ jobs:
           username: ${{ secrets.VPS_USERNAME }}
           password: ${{ secrets.VPS_PASSWORD }}
           script: |
-            docker pull gaspardcothiasfaure/anniv.lgna.fr:0.2
-            docker-compose -f /home/debian/lgna-sandbox/anniv.lgna.fr/docker-compose.yml --env-file /home/debian/lgna-sandbox/anniv.lgna.fr/.env up -d
+            docker pull gaspardcothiasfaure/parislapresmidi-tracking-parcels:0.1
+            mkdir -p /home/debian/parislapresmidi-tracking-parcels/output
+            docker-compose -f /home/debian/parislapresmidi-tracking-parcels/docker-compose.yml --env-file /home/debian/parislapresmidi-tracking-parcels/.env up -d
