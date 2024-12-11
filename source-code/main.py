@@ -28,12 +28,12 @@ logger = logging.getLogger(__name__)
 def process_tracking_updates():
     try:
         logging.info("Début de la mise à jour des statuts de suivi.")
-        ups_api_token = fetch_ups_api_access_token()
         service = get_google_sheet_service()
         mapping_data = fetch_mapping_data(service)
         sheet_data, ups_tracking_numbers = fetch_sheet_data(service)
         if len(ups_tracking_numbers)>0:
             logging.info(f"Il y a {len(ups_tracking_numbers)} statuts à mettre à jour.")
+            ups_api_token = fetch_ups_api_access_token()
             status_codes = fetch_status_codes(ups_tracking_numbers, ups_api_token, mapping_data)
             update_google_sheet(status_codes, sheet_data,service)
         else:
@@ -44,7 +44,7 @@ def process_tracking_updates():
         pass
 
 # Programmer l'exécution toutes les heures à l'heure pile
-schedule.every().hour.at(":00").do(process_tracking_updates)
+schedule.every().hour.at(":20").do(process_tracking_updates)
 
 logging.info("Démarrage du programme.")
 # Première exécution immédiate
