@@ -44,7 +44,7 @@ def process_tracking_updates():
         pass
 
 # Programmer l'exécution toutes les heures à l'heure pile
-schedule.every().hour.at(":25").do(process_tracking_updates)
+schedule.every().hour.at(":18").do(process_tracking_updates)
 
 logging.info("Démarrage du programme.")
 # Première exécution immédiate
