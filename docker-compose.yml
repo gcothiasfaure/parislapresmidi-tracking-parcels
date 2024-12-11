@@ -1,0 +1,12 @@
+version: "3.7"
+
+services:
+  parislapresmidi-tracking-parcels:
+    image: gaspardcothiasfaure/parislapresmidi-tracking-parcels:0.2
+    container_name: parislapresmidi-tracking-parcels
+    restart: always
+    environment:
+      - NOTION_API_TOKEN=${NOTION_API_TOKEN}
+      - RESEND_API_KEY=${RESEND_API_KEY}
+    volumes:
+      - "/home/debian/parislapresmidi-tracking-parcels/output:/app/output"
