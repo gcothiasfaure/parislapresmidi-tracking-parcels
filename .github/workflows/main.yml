@@ -49,4 +49,4 @@ jobs:
           script: |
             docker pull gaspardcothiasfaure/parislapresmidi-tracking-parcels:0.1
             mkdir -p /home/debian/parislapresmidi-tracking-parcels/output
-            docker-compose -f /home/debian/parislapresmidi-tracking-parcels/docker-compose.yml --env-file /home/debian/parislapresmidi-tracking-parcels/.env up -d
+            docker-compose -f /home/debian/parislapresmidi-tracking-parcels/docker-compose.yml up -d

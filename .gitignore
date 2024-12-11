@@ -2,4 +2,5 @@
 .env
 __pycache__
 env.ps1
-app.log
+output
+GOOGLE_DRIVE_API_USER_TOKEN_FILE.json

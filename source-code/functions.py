@@ -1,13 +1,11 @@
 import logging
-from google.oauth2.service_account import Credentials
+from oauth2client.service_account import ServiceAccountCredentials
 from googleapiclient.discovery import build
 from datetime import datetime, timedelta
 import requests
 from requests.auth import HTTPBasicAuth
 import os
 import uuid
-
-from GOOGLE_APIS_SERVICE_ACCOUNT_INFOS import GOOGLE_APIS_SERVICE_ACCOUNT_INFOS
 
 UPS_API_BASE_URL = "https://onlinetools.ups.com/"
 UPS_API_CLIENT_ID = os.environ.get('UPS_API_CLIENT_ID')
@@ -16,6 +14,7 @@ PALAM_EXPEDITIONS_GOOGLE_SHEET_ID = os.environ.get('PALAM_EXPEDITIONS_GOOGLE_SHE
 MAPPING_PALAM_UPS_STATUS_CODES_GOOGLE_SHEET_ID = os.environ.get('MAPPING_PALAM_UPS_STATUS_CODES_GOOGLE_SHEET_ID')
 GOOGLE_SHEET_SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 GOOGLE_SHEET_NAME = 'Feuille 1'
+GOOGLE_APIS_SERVICE_ACCOUNT_INFOS_FILE = 'GOOGLE_DRIVE_API_USER_TOKEN_FILE.json'
 
 def fetch_ups_api_access_token():
     try:
@@ -35,7 +34,7 @@ def fetch_ups_api_access_token():
 
 def get_google_sheet_service():
     try:
-        creds = Credentials.from_service_account_info(GOOGLE_APIS_SERVICE_ACCOUNT_INFOS,scopes=GOOGLE_SHEET_SCOPES)
+        creds = ServiceAccountCredentials.from_json_keyfile_name(GOOGLE_APIS_SERVICE_ACCOUNT_INFOS_FILE,GOOGLE_SHEET_SCOPES)
         return build('sheets', 'v4', credentials=creds)
     except Exception as e:
         logging.error("Erreur lors de la configuration de l'API Google Sheets : %s", e, exc_info=True)
