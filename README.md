@@ -4,7 +4,7 @@ Robot de récupération des statuts des colis UPS envoyés par [**Paris L'après
 
 ## Description du processus
 
-Le robot s'exécute toutes les heures à la minute 10 depuis 51.83.41.47 : IP de mon VPS (Virtual Private Server) hébergé chez [OVH](https://www.ovhcloud.com/).
+Le robot s'exécute toutes les heures à la minute 10 depuis 51.83.41.47 : IP de mon VPS hébergé chez [OVH](https://www.ovhcloud.com/).
 
 ÉTAPE 1. Authentification à l'API Google Sheets
 

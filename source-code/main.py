@@ -43,8 +43,8 @@ def process_tracking_updates():
     except Exception as e:
         pass
 
-# Programmer l'exécution toutes les heures à l'heure pile
-schedule.every().hour.at(":18").do(process_tracking_updates)
+# Programmer l'exécution toutes les heures à minute 10
+schedule.every().hour.at(":10").do(process_tracking_updates)
 
 logging.info("Démarrage du programme.")
 # Première exécution immédiate
