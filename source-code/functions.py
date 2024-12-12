@@ -1,24 +1,24 @@
 import logging
-from oauth2client.service_account import ServiceAccountCredentials
-from googleapiclient.discovery import build
-from datetime import datetime, timedelta
-import requests
-from requests.auth import HTTPBasicAuth
 import os
 import uuid
+from datetime import datetime, timedelta
+from oauth2client.service_account import ServiceAccountCredentials
+from googleapiclient.discovery import build
+import requests
+from requests.auth import HTTPBasicAuth
 
 UPS_API_BASE_URL = "https://onlinetools.ups.com/"
 UPS_API_CLIENT_ID = os.environ.get('UPS_API_CLIENT_ID')
 UPS_API_CLIENT_SECRET = os.environ.get('UPS_API_CLIENT_SECRET')
 PALAM_EXPEDITIONS_GOOGLE_SHEET_ID = os.environ.get('PALAM_EXPEDITIONS_GOOGLE_SHEET_ID')
-MAPPING_PALAM_UPS_STATUS_CODES_GOOGLE_SHEET_ID = os.environ.get('MAPPING_PALAM_UPS_STATUS_CODES_GOOGLE_SHEET_ID')
 GOOGLE_SHEET_SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
-GOOGLE_SHEET_NAME = 'Feuille 1'
+GOOGLE_SHEET_NAME = 'Expéditions'
 GOOGLE_APIS_SERVICE_ACCOUNT_INFOS_FILE = 'GOOGLE_DRIVE_API_USER_TOKEN_FILE.json'
+NB_JOURS_MAX_MAJ_STATUT = 100
 
 def fetch_ups_api_access_token():
     try:
-        logging.info("Obtention du token d'accès UPS.")
+        logging.info("Obtention du token d'accès pour l'API UPS")
         url = UPS_API_BASE_URL+"security/v1/oauth/token"
         headers = {
             'Content-Type': 'application/x-www-form-urlencoded',
@@ -29,33 +29,21 @@ def fetch_ups_api_access_token():
         response.raise_for_status()
         return response.json().get('access_token')
     except requests.exceptions.RequestException as e:
-        logging.error("Erreur lors de la récupération du token UPS : %s", e, exc_info=True)
+        logging.error("Erreur lors de l'obtention du token d'accès pour l'API UPS : %s", e, exc_info=True)
         raise
 
 def get_google_sheet_service():
     try:
+        logging.info("Configuration de l'API Google Sheets")
         creds = ServiceAccountCredentials.from_json_keyfile_name(GOOGLE_APIS_SERVICE_ACCOUNT_INFOS_FILE,GOOGLE_SHEET_SCOPES)
         return build('sheets', 'v4', credentials=creds)
     except Exception as e:
         logging.error("Erreur lors de la configuration de l'API Google Sheets : %s", e, exc_info=True)
         raise
 
-def fetch_mapping_data(service):
-    try:
-        logging.info("Chargement des données de mapping UPS.")
-        result = service.spreadsheets().values().get(
-            spreadsheetId=MAPPING_PALAM_UPS_STATUS_CODES_GOOGLE_SHEET_ID,
-            range=GOOGLE_SHEET_NAME
-        ).execute()
-        rows = result.get('values', [])
-        return {row[1].zfill(3): row[0] for row in rows if len(row) >= 2 and row[0] != 'Libellé statut PALAM' and row[0] and row[1]}
-    except Exception as e:
-        logging.error("Erreur lors de la récupération des données de mapping : %s", e, exc_info=True)
-        raise
-
 def fetch_sheet_data(service):
     try:
-        logging.info("Chargement des données de la feuille de calcul.")
+        logging.info("Chargement des données de la feuille Expéditions du fichier Google Sheets PALAM")
         result = service.spreadsheets().values().get(
             spreadsheetId=PALAM_EXPEDITIONS_GOOGLE_SHEET_ID,
             range=GOOGLE_SHEET_NAME
@@ -68,18 +56,25 @@ def fetch_sheet_data(service):
             except ValueError:
                 continue
             if len(row) >= 4 and row[3] == 'UPS' and len(row[4])>0:
-                if row_date >= datetime.now() - timedelta(days=100):
+                if row_date >= datetime.now() - timedelta(days=NB_JOURS_MAX_MAJ_STATUT):
                     if len(row) == 10 or (len(row) > 10 and row[10] != 'LIVRÉ'):
                         filtered_data.append(row)
         tracking_numbers = list(set(row[4] for row in filtered_data))
         return raw_data, tracking_numbers
     except Exception as e:
-        logging.error("Erreur lors de la récupération des données de la feuille : %s", e, exc_info=True)
+        logging.error("Erreur lors de la récupération des données de la feuille Expéditions du fichier Google Sheets PALAM : %s", e, exc_info=True)
         raise
 
-def fetch_status_codes(tracking_numbers, ups_api_token, mapping_data):
+def fetch_status_codes(tracking_numbers, ups_api_token):
+    mapping_data = {
+        'D': 'LIVRÉ',
+        'I': 'EN TRANSIT',
+        'P': 'EN TRANSIT',
+        'M': 'EN TRANSIT',
+        'X': 'ANOMALIE',
+    }
     try:
-        logging.info("Récupération des statuts de suivi UPS.")
+        logging.info("Récupération des statuts de suivi UPS et correspondance avec les statuts des expéditions PALAM")
         headers = {
             'Authorization': f"Bearer {ups_api_token}",
             'transId': str(uuid.uuid4().hex),
@@ -100,19 +95,25 @@ def fetch_status_codes(tracking_numbers, ups_api_token, mapping_data):
                 packages = shipments[0]['package']
                 if len(shipments)>1 or len(packages)>1:
                     logging.warning(f"Nb de shipment : {str(len(shipments))} / Nb de package : {str(len(packages))}")
-                status_code = packages[0]['currentStatus']['code']
-                status_list.append({
-                    'tracking_number': tracking_number,
-                    'status_code': mapping_data.get(status_code, 'INCONNU')
-                })
+                status_code = packages[0]['activity'][0]["status"]["type"]
+                if status_code == 'X' and packages[0]['activity'][0]["status"]["description"] == "Votre colis est en route" and packages[0]['activity'][0]["status"]["code"]=="DA" and packages[0]['activity'][0]["status"]["statusCode"]=="014":
+                    status_list.append({
+                        'tracking_number': tracking_number,
+                        'status_code': 'EN TRANSIT'
+                    })
+                else:
+                    status_list.append({
+                        'tracking_number': tracking_number,
+                        'status_code': mapping_data.get(status_code, 'INCONNU')
+                    })
         return status_list
     except Exception as e:
-        logging.error("Erreur lors de la récupération des statuts UPS : %s", e, exc_info=True)
+        logging.error("Erreur lors de la récupération des statuts de suivi UPS et correspondance avec les statuts des expéditions PALAM : %s", e, exc_info=True)
         raise
 
 def update_google_sheet(status_list, raw_data,service):
     try:
-        logging.info("Mise à jour de la feuille de calcul avec les nouveaux statuts.")
+        logging.info("Mise à jour des status des expéditions de la feuille Expéditions du fichier Google Sheets PALAM")
         requests = []
         for row_index, row in enumerate(raw_data):
             if row_index == 0:
@@ -132,7 +133,6 @@ def update_google_sheet(status_list, raw_data,service):
                 spreadsheetId=PALAM_EXPEDITIONS_GOOGLE_SHEET_ID, 
                 body=body
             ).execute()
-            logging.info("Feuille de calcul mise à jour avec succès.")
     except Exception as e:
-        logging.error("Erreur lors de la mise à jour de la feuille de calcul : %s", e, exc_info=True)
+        logging.error("Erreur lors de la mise à jour des status des expéditions de la feuille Expéditions du fichier Google Sheets PALAM : %s", e, exc_info=True)
         raise
