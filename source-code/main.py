@@ -8,7 +8,8 @@ from functions import (
     get_google_sheet_service,
     fetch_ups_api_access_token,
     fetch_sheet_data,
-    fetch_status_codes,
+    fetch_ups_status_codes,
+    fetch_dhl_status_codes,
     update_google_sheet
 )
 
@@ -33,13 +34,25 @@ def process_tracking_updates():
     try:
         logging.info("Début du programme")
         service = get_google_sheet_service()
-        sheet_data, ups_tracking_numbers = fetch_sheet_data(service)
-        if len(ups_tracking_numbers)>0:
-            logging.info(f"Il y a {len(ups_tracking_numbers)} statuts d'expéditions à mettre à jour")
-            ups_api_token = fetch_ups_api_access_token()
-            status_codes = fetch_status_codes(ups_tracking_numbers, ups_api_token)
-            print(status_codes)
-            update_google_sheet(status_codes, sheet_data,service)
+        sheet_data, ups_tracking_numbers, dhl_tracking_numbers = fetch_sheet_data(service)
+        if len(ups_tracking_numbers)>0 or len(dhl_tracking_numbers)>0:
+            # UPS
+            ups_status_codes = []
+            if len(ups_tracking_numbers)>0:
+                logging.info(f"Il y a {len(ups_tracking_numbers)} statuts d'expéditions UPS à mettre à jour")
+                ups_api_token = fetch_ups_api_access_token()
+                ups_status_codes = fetch_ups_status_codes(ups_tracking_numbers, ups_api_token)
+            else:
+                logging.info("Il n'y a pas de statuts d'expéditions UPS à mettre à jour")
+            # DHL
+            dhl_status_codes = []
+            if len(dhl_tracking_numbers)>0:
+                logging.info(f"Il y a {len(dhl_tracking_numbers)} statuts d'expéditions DHL à mettre à jour")
+                dhl_status_codes = fetch_dhl_status_codes(dhl_tracking_numbers)
+            else:
+                logging.info("Il n'y a pas de statuts d'expéditions DHL à mettre à jour")
+            status_codes = ups_status_codes+dhl_status_codes
+            update_google_sheet(status_codes, sheet_data, service)
         else:
             logging.info("Il n'y a pas de statuts d'expéditions à mettre à jour")
         logging.info("Fin du programme")

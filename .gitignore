@@ -5,3 +5,4 @@ env.ps1
 output
 GOOGLE_DRIVE_API_USER_TOKEN_FILE.json
 .DS_Store
+env.sh

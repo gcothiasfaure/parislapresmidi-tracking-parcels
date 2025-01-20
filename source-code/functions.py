@@ -8,13 +8,15 @@ import requests
 from requests.auth import HTTPBasicAuth
 
 UPS_API_BASE_URL = "https://onlinetools.ups.com/"
-UPS_API_CLIENT_ID = os.environ.get('UPS_API_CLIENT_ID')
-UPS_API_CLIENT_SECRET = os.environ.get('UPS_API_CLIENT_SECRET')
-PALAM_EXPEDITIONS_GOOGLE_SHEET_ID = os.environ.get('PALAM_EXPEDITIONS_GOOGLE_SHEET_ID')
+DHL_API_URL="https://api-eu.dhl.com/track/shipments"
 GOOGLE_SHEET_SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 GOOGLE_SHEET_NAME = 'Expéditions'
 GOOGLE_APIS_SERVICE_ACCOUNT_INFOS_FILE = 'GOOGLE_DRIVE_API_USER_TOKEN_FILE.json'
-NB_JOURS_MAX_MAJ_STATUT = 100
+NB_JOURS_MAX_MAJ_STATUT = 60
+UPS_API_CLIENT_ID = os.environ.get('UPS_API_CLIENT_ID')
+UPS_API_CLIENT_SECRET = os.environ.get('UPS_API_CLIENT_SECRET')
+PALAM_EXPEDITIONS_GOOGLE_SHEET_ID = os.environ.get('PALAM_EXPEDITIONS_GOOGLE_SHEET_ID')
+DHL_API_KEY = os.environ.get('DHL_API_KEY')
 
 def fetch_ups_api_access_token():
     try:
@@ -49,23 +51,28 @@ def fetch_sheet_data(service):
             range=GOOGLE_SHEET_NAME
         ).execute()
         raw_data = result.get('values', [])
-        filtered_data = []
+        filtered_data_UPS = []
+        filtered_data_DHL = []
         for row in raw_data[1:]:
             try:
                 row_date = datetime.strptime(row[0], "%d/%m/%Y")
             except ValueError:
                 continue
-            if len(row) >= 4 and row[3] == 'UPS' and len(row[4])>0:
+            if len(row) >= 4 and len(row[4])>0:
                 if row_date >= datetime.now() - timedelta(days=NB_JOURS_MAX_MAJ_STATUT):
                     if len(row) == 10 or (len(row) > 10 and row[10] != 'LIVRÉ'):
-                        filtered_data.append(row)
-        tracking_numbers = list(set(row[4] for row in filtered_data))
-        return raw_data, tracking_numbers
+                        if row[3] == 'UPS':
+                            filtered_data_UPS.append(row)
+                        elif row[3] == 'DHL':
+                            filtered_data_DHL.append(row)
+        tracking_numbers_UPS = list(set(row[4] for row in filtered_data_UPS))
+        tracking_numbers_DHL = list(set(row[4] for row in filtered_data_DHL))
+        return raw_data, tracking_numbers_UPS, tracking_numbers_DHL
     except Exception as e:
         logging.error("Erreur lors de la récupération des données de la feuille Expéditions du fichier Google Sheets PALAM : %s", e, exc_info=True)
         raise
 
-def fetch_status_codes(tracking_numbers, ups_api_token):
+def fetch_ups_status_codes(tracking_numbers, ups_api_token):
     mapping_data = {
         'D': 'LIVRÉ',
         'I': 'EN TRANSIT',
@@ -94,7 +101,7 @@ def fetch_status_codes(tracking_numbers, ups_api_token):
             else:
                 packages = shipments[0]['package']
                 if len(shipments)>1 or len(packages)>1:
-                    logging.warning(f"Nb de shipment : {str(len(shipments))} / Nb de package : {str(len(packages))}")
+                    logging.warning(f"(UPS) Nb de shipment : {str(len(shipments))} / Nb de package : {str(len(packages))}")
                 status_code = packages[0]['activity'][0]["status"]["type"]
                 if status_code == 'X' and packages[0]['activity'][0]["status"]["description"] == "Votre colis est en route" and packages[0]['activity'][0]["status"]["code"]=="DA" and packages[0]['activity'][0]["status"]["statusCode"]=="014":
                     status_list.append({
@@ -109,6 +116,41 @@ def fetch_status_codes(tracking_numbers, ups_api_token):
         return status_list
     except Exception as e:
         logging.error("Erreur lors de la récupération des statuts de suivi UPS et correspondance avec les statuts des expéditions PALAM : %s", e, exc_info=True)
+        raise
+
+def fetch_dhl_status_codes(tracking_numbers):
+    mapping_data = {
+        '101': 'LIVRÉ',
+        '102': 'EN TRANSIT',
+        '104': 'EN TRANSIT',
+        '103': 'ANOMALIE',
+    }
+    try:
+        logging.info("Récupération des statuts de suivi UPS et correspondance avec les statuts des expéditions PALAM")
+        headers = {
+            'DHL-API-Key': DHL_API_KEY
+        }
+        status_list = []
+        for tracking_number in tracking_numbers:
+            url = f"{DHL_API_URL}?trackingNumber={tracking_number}&requesterCountryCode=fr&language=fr"
+            response = requests.get(url, headers=headers)
+            if response.status_code != 200:
+                status_list.append({
+                    'tracking_number': tracking_number,
+                    'status_code': 'N° NON RECONNU'
+                })
+            else:
+                shipments = response.json()['shipments']
+                if len(shipments)>1:
+                    logging.warning(f"(DHL) Nb de shipment : {str(len(shipments))}")
+                status_code = shipments[0]['status']['status']
+                status_list.append({
+                    'tracking_number': tracking_number,
+                    'status_code': mapping_data.get(status_code, 'INCONNU')
+                })
+        return status_list
+    except Exception as e:
+        logging.error("Erreur lors de la récupération des statuts de suivi DHL et correspondance avec les statuts des expéditions PALAM : %s", e, exc_info=True)
         raise
 
 def update_google_sheet(status_list, raw_data,service):
