@@ -134,10 +134,15 @@ def fetch_dhl_status_codes(tracking_numbers):
         for tracking_number in tracking_numbers:
             url = f"{DHL_API_URL}?trackingNumber={tracking_number}&requesterCountryCode=fr&language=fr"
             response = requests.get(url, headers=headers)
-            if response.status_code != 200:
+            if response.status_code == 404:
                 status_list.append({
                     'tracking_number': tracking_number,
                     'status_code': 'N° NON RECONNU'
+                })
+            elif response.status_code != 200:
+                status_list.append({
+                    'tracking_number': tracking_number,
+                    'status_code': 'INCONNU'
                 })
             else:
                 shipments = response.json()['shipments']
