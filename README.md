@@ -8,6 +8,7 @@ Le robot s'exécute toutes les heures à la minute 10 depuis 51.83.41.47 : IP de
 
 ÉTAPE 1. Authentification à l'API Google Sheets
 
+
 ÉTAPE 2. Récupération des données de correspondances des statuts des colis UPS définis dans le fichier Google Sheets de correspondance des statuts
 
 ÉTAPE 3. Récupération des données d'expéditions de Paris L'après-midi définies dans le fichier Google Sheets des expéditions. On récupère les expéditions dont :
