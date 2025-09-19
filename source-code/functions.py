@@ -54,6 +54,8 @@ def fetch_sheet_data(service):
         filtered_data_UPS = []
         filtered_data_DHL = []
         for row in raw_data[1:]:
+            if len(row) == 0:
+                continue
             try:
                 row_date = datetime.strptime(row[0], "%d/%m/%Y")
             except ValueError:
