@@ -93,7 +93,12 @@ def fetch_ups_status_codes(tracking_numbers, ups_api_token):
         for tracking_number in tracking_numbers:
             url = f"{UPS_API_BASE_URL}api/track/v1/details/{tracking_number}?locale=fr_FR"
             response = requests.get(url, headers=headers)
-            response.raise_for_status()
+            if response.status_code == 404:
+                status_list.append({
+                    'tracking_number': tracking_number,
+                    'status_code': 'N° NON RECONNU'
+                })
+                continue
             shipments = response.json()['trackResponse']['shipment']
             if "warnings" in shipments[0]:
                 status_list.append({
